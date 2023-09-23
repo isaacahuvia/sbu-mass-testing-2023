@@ -1,7 +1,7 @@
 ####  PMIL-D IRT  ####
 # https://bookdown.org/bean_jerry/using_r_for_social_work_research/item-response-theory.html
 
-df <- read.csv("/Users/isaacahuvia/Desktop/mass_testing_data.csv",
+df <- read.csv("H:\\My Drive\\Research\\Projects\\Depression Beliefs\\Mass Testing\\Mass Testing data (Fall 2023) Ahuvia.csv",
                header = T)
 
 library(tidyverse)
