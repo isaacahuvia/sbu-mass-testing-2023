@@ -28,12 +28,17 @@ df <- raw %>%
         "[Decline to Answer]" = NA_real_
       )
     ),
+    across(c(brain_neutral, genes_neutral, brain_dys, genes_dys, starts_with("ipq"), starts_with("therapy_eff")),
+           ~ gsub("\\s.*$", "", .) %>%
+             as.numeric),
     dep_self_id = dep_self_id == "Yes",
     phq = phq_1 + phq_2,
     cbas_cn = cbas_cn_1 + cbas_cn_2,
     cbas_cs = cbas_cs_1 + cbas_cs_2,
     cbas_bn = cbas_bn_1 + cbas_bn_2,
-    cbas_bs = cbas_bs_1 + cbas_bs_2
+    cbas_bs = cbas_bs_1 + cbas_bs_2,
+    meds_eff = therapy_eff21362,
+    net_dys = brain_dys + genes_dys - brain_neutral - genes_neutral
   )
 
 lm(data = df,
@@ -51,3 +56,11 @@ lm(data = df,
 lm(data = df,
    formula = cbas_bn ~ dep_self_id + phq) %>%
   summary()
+
+# Hans analysis
+library(corrplot)
+
+df %>%
+  select(brain_neutral, genes_neutral, brain_dys, genes_dys, net_dys, therapy_eff, meds_eff, phq) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  corrplot()
