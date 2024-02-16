@@ -142,7 +142,7 @@ clean_data <- combined_raw_data %>%
     dlit_6 = dlit_6 == "TRUE",
     dlit_7 = dlit_7 == "TRUE",
     dlit_8 = dlit_8 == "FALSE",
-    d_lit_sum = dlit_1 + dlit_2 + dlit_3 + dlit_4 + dlit_5 + dlit_6 + dlit_7 + dlit_8
+    dlit_sum = dlit_1 + dlit_2 + dlit_3 + dlit_4 + dlit_5 + dlit_6 + dlit_7 + dlit_8
 
   ) %>%
   select(
