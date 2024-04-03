@@ -4,8 +4,12 @@ library(tidyverse)
 library(here)
 
 
+## Set random number seed
+set.seed(68026)
+
+
 ## Load data
-raw_fall23 <- read.csv("H:\\My Drive\\Research\\Projects\\Depression Beliefs\\Mass Testing\\Raw Data - Fall 2023.csv",
+raw_fall23 <- read.csv("H:\\My Drive\\Research\\Projects\\Depression Identification\\Mass Testing\\Raw Data - Fall 2023.csv",
                        header = T) %>%
   rename(
     med_eff = therapy_eff21362,
@@ -14,7 +18,7 @@ raw_fall23 <- read.csv("H:\\My Drive\\Research\\Projects\\Depression Beliefs\\Ma
     parent_cob_usa = Were.your.parents.born.in.this.country.
   )
 
-raw_spring24 <- read.csv("H:\\My Drive\\Research\\Projects\\Depression Beliefs\\Mass Testing\\Raw Data - Spring 2024.csv",
+raw_spring24 <- read.csv("H:\\My Drive\\Research\\Projects\\Depression Identification\\Mass Testing\\Raw Data - Spring 2024.csv",
                          header = T) %>%
   rename(
     med_eff = therapy_eff21649,
@@ -40,16 +44,19 @@ combined_raw_data %>%
   filter(duplicated(e.mail)) %>%
   pull(e.mail) %>%
   unique()
-combined_raw_data$e.mail[duplicated(combined_raw_data$e.mail)] #N
+combined_raw_data$e.mail[duplicated(combined_raw_data$e.mail)]
 
-## Clean variables (other than concept breadth)
+## Recode variables, removing irrelevant variables
 # See variables in preregistration: https://docs.google.com/document/d/10CX3-Pu8o-2nZBUL1wILzqzIV0pdDcVGGKJKb9BDUnI/edit
-clean_data <- combined_raw_data %>%
+recoded_data <- combined_raw_data %>%
   mutate(
 
     ## Flag NA values across all variables
     across(everything(),
            ~ na_if(., "[Decline to Answer]")),
+
+    id = row_number(),
+    dataset = dataset,
 
     ## Demographics
     age = as.numeric(Age),
@@ -59,7 +66,16 @@ clean_data <- combined_raw_data %>%
       !is.na(gender) ~ "TGD",
       is.na(gender) ~ NA_character_
     ),
-    race_ethnicity = Enthnicity,
+    race_ethnicity = case_when(
+      Enthnicity == "Caucasian/Non-Hispanic White" ~ "White non-Hispanic",
+      Enthnicity == "African American or Caribbean-Black or African" ~ "Black non-Hispanic",
+      Enthnicity %in% c("East Asian", "South East Asian") ~ "Asian non-Hispanic",
+      Enthnicity == "American Indian or Alaska Native" ~ "AI/AN non-Hispanic",
+      Enthnicity == "Other or Mixed" ~ "Other or Multiracial non-Hispanic",
+      Enthnicity == "Hispanic or Latino or Chicano" ~ "Hispanic",
+      T ~ NA_character_
+    ) %>%
+      factor(levels = c("White non-Hispanic", "Black non-Hispanic", "Asian non-Hispanic", "AI/AN non-Hispanic", "Other or Multiracial non-Hispanic", "Hispanic")),
     sexuality = case_when(
       SexualOrientation == "Heterosexual or straight;" ~ "Heterosexual",
       !is.na(SexualOrientation) ~ "LGB+",
@@ -106,7 +122,6 @@ clean_data <- combined_raw_data %>%
         "Nearly every day" ~ 3
       )
     ),
-    phq_sum = phq_1 + phq_2,
 
     ## Cognitive-behavioral avoidance
     across(
@@ -121,19 +136,10 @@ clean_data <- combined_raw_data %>%
       )
     ),
 
-    cbas_cs_sum = cbas_cs_1 + cbas_cs_2,
-    cbas_cn_sum = cbas_cn_1 + cbas_cn_2,
-    cbas_bs_sum = cbas_bs_1 + cbas_bs_2,
-    cbas_bn_sum = cbas_bn_1 + cbas_bn_2,
+    ## Behavioral treatment-seeking
+    ssi_opt_in = ssi_opt_in == "Yes",
 
-    cbas_c_sum = cbas_cs_sum + cbas_cn_sum,
-    cbas_b_sum = cbas_bs_sum + cbas_bn_sum,
-
-    cbas_s_sum = cbas_cs_sum + cbas_bs_sum,
-    cbas_n_sum = cbas_cn_sum + cbas_bn_sum,
-
-    cbas_sum = cbas_c_sum + cbas_b_sum,
-
+    ## Depression literacy
     dlit_1 = dlit_1 == "FALSE",
     dlit_2 = dlit_2 == "TRUE",
     dlit_3 = dlit_3 == "TRUE",
@@ -142,12 +148,11 @@ clean_data <- combined_raw_data %>%
     dlit_6 = dlit_6 == "TRUE",
     dlit_7 = dlit_7 == "TRUE",
     dlit_8 = dlit_8 == "FALSE",
-    dlit_sum = dlit_1 + dlit_2 + dlit_3 + dlit_4 + dlit_5 + dlit_6 + dlit_7 + dlit_8
 
   ) %>%
   select(
 
-    dataset,
+    id, dataset,
 
     age, race_ethnicity, gender, sexuality, cob_usa, parent_cob_usa,
 
@@ -168,11 +173,73 @@ clean_data <- combined_raw_data %>%
 
     starts_with("cbas"),
 
+    ssi_opt_in,
+
     starts_with("dlit")
+
+  )
+
+
+## Impute data
+missForest_output <- recoded_data %>%
+  mutate(
+    across(
+      is.character | is.logical,
+      as.factor
+    )
+  ) %>%
+  missForest()
+
+missForest_output$OOBerror
+
+imputed_data <- missForest_output$ximp %>%
+  # Re-NA-ify cells that ought to be NA: depression beliefs when dep_self_id != "Yes"
+  mutate(
+    across(
+      starts_with("ipq"),
+      ~ if_else(
+        dep_self_id == "Yes",
+        .,
+        NA_real_
+      )
+    )
+  )
+
+
+## Calculate composites
+data_with_composites <- imputed_data %>%
+  mutate(
+
+    phq_sum = phq_1 + phq_2,
+
+    cbas_cs_sum = cbas_cs_1 + cbas_cs_2,
+    cbas_cn_sum = cbas_cn_1 + cbas_cn_2,
+    cbas_bs_sum = cbas_bs_1 + cbas_bs_2,
+    cbas_bn_sum = cbas_bn_1 + cbas_bn_2,
+
+    cbas_c_sum = cbas_cs_sum + cbas_cn_sum,
+    cbas_b_sum = cbas_bs_sum + cbas_bn_sum,
+
+    cbas_s_sum = cbas_cs_sum + cbas_bs_sum,
+    cbas_n_sum = cbas_cn_sum + cbas_bn_sum,
+
+    cbas_sum = cbas_c_sum + cbas_b_sum,
+
+    across(starts_with("dlit"), as.numeric),
+    dlit_sum = dlit_1 + dlit_2 + dlit_3 + dlit_4 + dlit_5 + dlit_6 + dlit_7 + dlit_8
+
+  )
+
+
+## Filter to only students <= 25 y/o
+filtered_data <- data_with_composites %>%
+  filter(
+
+    age <= 25 # Not pre-registered, but to align with past research
 
   )
 
 
 
 ####  Save Data  ####
-saveRDS(clean_data, here("Data", "Clean Data.rds"))
+saveRDS(filtered_data, here("Data", "Clean Data.rds"))

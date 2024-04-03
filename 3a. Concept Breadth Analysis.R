@@ -109,3 +109,51 @@ regress("med_eff")
 
 # 3e. Concept breadth by depression literacy
 regress("dlit_sum")
+
+
+# Checking on depression literacy and race/ethnicity. Race/ethnicity should be recoded to have a more informative comparison group
+df <- df %>%
+  mutate(
+    race_ethnicity_recode = case_when(
+      race_ethnicity == "Caucasian/Non-Hispanic White" ~ "White",
+      race_ethnicity == "African American or Caribbean-Black or African" ~ "Black",
+      race_ethnicity == "Hispanic or Latino or Chicano" ~ "Hispanic",
+      race_ethnicity == "Other or Mixed" ~ "Other",
+      race_ethnicity %in% c("East Asian", "South East Asian") ~ "Asian",
+      T ~ NA_character_
+    ) %>%
+      factor(levels = c("White", "Black", "Hispanic", "Asian", "Other"))
+  )
+
+lm(
+  data = df,
+  dlit_sum ~ race_ethnicity_recode
+) %>%
+  summary()
+
+lm(
+  data = df,
+  concept_breadth ~ race_ethnicity_recode
+) %>%
+  summary()
+
+chisq.test(
+  table(
+    df$dep_self_id,
+    df$race_ethnicity_recode
+  )
+)
+
+glm(
+  data = df,
+  dep_self_id == "Yes" ~ race_ethnicity_recode + phq_sum,
+  family = "binomial"
+) %>%
+  summary()
+
+glm(
+  data = df,
+  dep_self_id %in% c("Maybe", "Yes") ~ race_ethnicity_recode + phq_sum,
+  family = "binomial"
+) %>%
+  summary()
