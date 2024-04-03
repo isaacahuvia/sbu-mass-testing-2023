@@ -289,3 +289,16 @@ out %>%
   ) %>%
   kable()
 ```
+
+## Etc.
+
+### Quick test - do LGB+ students *over*identify? (No! They just *under*identify *less*)
+
+```{r}
+df %>%
+  group_by(sexuality) %>%
+  summarize(
+    self_label = mean(dep_self_id == "Yes"),
+    phq_screen = mean(phq_sum >= 3)
+  )
+```
