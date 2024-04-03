@@ -1,0 +1,291 @@
+---
+title: "3. Analysis"
+output: html_document
+date: "2024-04-03"
+---
+
+```{r setup, include = F}
+####  Setup  ####
+## Load packages
+library(tidyverse)
+library(broom)
+library(here)
+library(scales)
+library(knitr)
+library(kableExtra)
+`%+%` <- paste0
+
+
+## Load data
+df <- readRDS(here("Data", "Clean Data with Concept Breadth.rds"))
+
+
+
+####  Analysis  ####
+## Set output table, functions
+out <- tibble()
+
+my_lm <- function(iv, dv, rq, control = F) {
+  
+  formula_temp <- dv %+% " ~ " %+% iv
+  
+  if(control) formula_temp <- formula_temp %+% " + phq_sum"
+  
+  regression_temp <- lm(
+    data = df,
+    formula = formula_temp
+  )
+  
+  output_temp <- tidy(regression_temp) %>%
+    filter(! term %in% c("(Intercept)", "phq_sum")) %>%
+    mutate(dv = dv, control = control, rq = rq) %>%
+    select(rq, dv, iv = term, control, estimate, p.value)
+  
+  return(output_temp)
+  
+}
+
+my_glm <- function(iv, dv, rq, control = F) {
+  
+  formula_temp <- dv %+% " ~ " %+% iv
+  
+  if(control) formula_temp <- formula_temp %+% " + phq_sum"
+  
+  regression_temp <- glm(
+    data = df,
+    formula = formula_temp,
+    family = "binomial"
+  )
+  
+  output_temp <- tidy(regression_temp) %>%
+    filter(! term %in% c("(Intercept)", "phq_sum")) %>%
+    mutate(estimate = exp(estimate), dv = dv, control = control, rq = rq) %>%
+    select(rq, dv, iv = term, control, estimate, p.value)
+  
+  return(output_temp)
+  
+}
+
+
+## Analysis 1A: What student characteristics are associated with greater depression concept breadth?
+student_characteristics <- c(
+  "age", "race_ethnicity", "gender", "sexuality", "cob_usa", "parent_cob_usa",
+  "dep_dx", "dep_therapy", "dep_meds", "dep_fam", "dep_friends"
+)
+
+for(x in student_characteristics) {
+  
+  output_uncontrolled <- my_lm(iv = x, dv = "concept_breadth", rq = "1a", control = F)
+  out <- bind_rows(out, output_uncontrolled)
+  
+  output_controlled <- my_lm(iv = x, dv = "concept_breadth", rq = "1a", control = T)
+  out <- bind_rows(out, output_controlled)
+  
+}
+
+
+## Analysis 1B: Is greater depression concept breadth associated with depression self-labeling?
+for(y in c("dep_self_id == 'Yes'", "dep_self_id %in% c('Yes', 'Not sure')")) {
+  
+  output_uncontrolled <- my_glm(iv = "concept_breadth", dv = y, rq = "1b", control = F)
+  out <- bind_rows(out, output_uncontrolled)
+  
+  output_controlled <- my_glm(iv = "concept_breadth", dv = y, rq = "1b", control = T)
+  out <- bind_rows(out, output_controlled)
+  
+}
+
+
+## Analysis 2A: What student characteristics are associated with depression self-labeling?
+for(x in student_characteristics) {
+  
+  for(y in c("dep_self_id == 'Yes'", "dep_self_id %in% c('Yes', 'Not sure')")) {
+    
+    output_uncontrolled <- my_glm(iv = x, dv = y, rq = "2a", control = F)
+    out <- bind_rows(out, output_uncontrolled)
+  
+    output_controlled <- my_glm(iv = x, dv = y, rq = "2a", control = T)
+    out <- bind_rows(out, output_controlled)
+    
+  }
+
+}
+
+
+## Analysis 2B: Is depression self-labeling associated with certain coping strategies?
+coping_strategies <- c("cbas_c_sum", "cbas_b_sum", "cbas_s_sum", "cbas_n_sum", "cbas_sum", "therapy_eff", "med_eff")
+
+# Linear regressions for continuous outcomes
+for(y in coping_strategies) {
+  
+  output_uncontrolled <- my_lm(iv = "dep_self_id", dv = y, rq = "2b", control = F)
+  out <- bind_rows(out, output_uncontrolled)
+  
+  output_controlled <- my_lm(iv = "dep_self_id", dv = y, rq = "2b", control = T)
+  out <- bind_rows(out, output_controlled)
+  
+}
+
+# Logistic regressions for binary outcomes
+output_uncontrolled <- my_glm(iv = "dep_self_id", dv = "ssi_opt_in", rq = "2b", control = F)
+out <- bind_rows(out, output_uncontrolled)
+
+output_controlled <- my_glm(iv = "dep_self_id", dv = "ssi_opt_in", rq = "2b", control = T)
+out <- bind_rows(out, output_controlled)
+
+
+## Adjust p-values for all tests
+out$p.adj <- p.adjust(out$p.value, "BH")
+```
+
+## Sample Description
+
+```{r}
+# Summarize continuous variables
+df %>%
+  pivot_longer(c(age, phq_sum)) %>%
+  group_by(name) %>%
+  summarize(
+    mean = mean(value),
+    sd = sd(value),
+    min = min(value),
+    max = max(value)
+  )
+
+# Summarize categorical variables
+count_with_percents <- function(x) {
+  
+  df %>%
+    count({{x}}) %>%
+    mutate(percent = percent(n / sum(n), .1)) %>%
+    return()
+  
+}
+
+count_with_percents(gender)
+count_with_percents(race_ethnicity)
+count_with_percents(sexuality)
+count_with_percents(cob_usa)
+count_with_percents(parent_cob_usa)
+count_with_percents(dep_self_id)
+```
+
+## Analysis 1: Depression Concept Breadth and Self-Labeling
+
+### Analysis 1A: What student characteristics are associated with greater depression concept breadth?
+
+```{r}
+out %>%
+  filter(rq == "1a") %>%
+  select(iv, control, estimate, p.adj) %>%
+  pivot_wider(
+    names_from = control,
+    values_from = c(estimate, p.adj)
+  ) %>%
+  kable()
+```
+
+### Analysis 1B: Is greater depression concept breadth associated with depression self-labeling?
+
+```{r}
+out %>%
+  filter(rq == "1b") %>%
+  select(dv, control, estimate, p.adj) %>%
+  pivot_wider(
+    names_from = control,
+    values_from = c(estimate, p.adj)
+  ) %>%
+  kable()
+```
+
+#### Figure 1
+
+```{r}
+self_label_y_by_concept_breadth_model <- glm(
+  data = df,
+  formula = dep_self_id == "Yes" ~ concept_breadth + phq_sum,
+  family = "binomial"
+)
+
+self_label_y_by_concept_breadth_fitted_data <- expand.grid(
+  phq_sum = 0:6,
+  concept_breadth = seq(-3, 3, .05)
+) %>%
+  mutate(
+    p_self_id = predict(
+      self_label_y_by_concept_breadth_model,
+      newdata = .,
+      type = "response"
+    ),
+    self_id = "Yes"
+  )
+
+self_label_ym_by_concept_breadth_model <- glm(
+  data = df,
+  formula = dep_self_id %in% c("Yes", "Not sure") ~ concept_breadth + phq_sum,
+  family = "binomial"
+)
+
+self_label_ym_by_concept_breadth_fitted_data <- expand.grid(
+  phq_sum = 0:6,
+  concept_breadth = seq(-3, 3, .05)
+) %>%
+  mutate(
+    p_self_id = predict(
+      self_label_ym_by_concept_breadth_model,
+      newdata = .,
+      type = "response"
+    ),
+    self_id = "Yes/Not sure"
+  )
+
+fitted_data_combined <- bind_rows(self_label_y_by_concept_breadth_fitted_data, self_label_ym_by_concept_breadth_fitted_data)
+
+fitted_data_combined %>%
+  filter(self_id == "Yes") %>% # Can also try faceted graph, but it looks confusing!
+  ggplot() +
+  geom_line(aes(concept_breadth, p_self_id, color = as.character(phq_sum)),
+            linewidth = 1) +
+  scale_x_continuous(
+    name = "Depression Concept Breadth (z-Score)"
+  ) +
+  scale_y_continuous(
+    name = "Probability of Depression Self-Labeling",
+    labels = percent_format(),
+    limits = c(0, 1)
+  ) +
+  scale_color_discrete(
+    name = "PHQ-2 Sum Score",
+    guide = guide_legend(reverse = T)
+  ) +
+  # facet_wrap(~ self_id) +
+  theme_classic()
+```
+
+## Analysis 2: Depression Self-Labeling and Coping
+
+### Analysis 2A: What student characteristics are associated with depression self-labeling?
+
+```{r}
+out %>%
+  filter(rq == "2a") %>%
+  select(iv, dv, control, estimate, p.adj) %>%
+  pivot_wider(
+    names_from = control,
+    values_from = c(estimate, p.adj)
+  ) %>%
+  kable()
+```
+
+### Analysis 2B: Is depression self-labeling associated wtih certain coping strategies?
+
+```{r}
+out %>%
+  filter(rq == "2b") %>%
+  select(iv, dv, control, estimate, p.adj) %>%
+  pivot_wider(
+    names_from = control,
+    values_from = c(estimate, p.adj)
+  ) %>%
+  kable()
+```

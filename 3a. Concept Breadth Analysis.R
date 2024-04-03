@@ -12,6 +12,19 @@ df <- readRDS(here("Data", "Clean Data with Concept Breadth.rds"))
 
 
 ####  Data Analysis  ####
+## 1A. What student characteristics are associated with greater depression concept breadth?
+# Demographics
+
+# Personal experience with depression
+
+# Depression beliefs (supplemental)
+
+# Treatment efficacy beliefs (supplemental)
+
+# Depression literacy (supplemental)
+
+
+## 1B. Is greater depression concept breadth associated with depression self-labeling?
 regression_bivariate <- glm(data = df,
                             formula = dep_self_id == "Yes" ~ concept_breadth,
                             family = "binomial")
@@ -22,11 +35,7 @@ regression_controlled <- glm(data = df,
                              family = "binomial")
 summary(regression_controlled)
 
-regression_double_controlled <- glm(data = df,
-                             formula = dep_self_id == "Yes" ~ concept_breadth + phq_sum + (dep_dx == "Yes"),
-                             family = "binomial")
-summary(regression_double_controlled)
-
+# Figure 1
 fitted_data <- expand.grid(
   phq_sum = 0:6,
   concept_breadth = seq(-3, 3, .05)
@@ -56,6 +65,21 @@ fitted_data %>%
     guide = guide_legend(reverse = T)
   ) +
   theme_classic()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # By IV
 regress <- function(IV, control = F) {
