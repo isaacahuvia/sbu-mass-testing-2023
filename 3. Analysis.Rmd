@@ -187,13 +187,15 @@ out %>%
 
 ### Analysis 1B: Is greater depression concept breadth associated with depression self-labeling?
 
+Note: I did *not* pre-register that I would control for FDR here, since these are only four tests and they are at the core of the study (the "primary" RQs, I guess). That said, I probably should have. But there's some flexibility here.
+
 ```{r}
 out %>%
   filter(rq == "1b") %>%
-  select(dv, control, estimate, p.adj) %>%
+  select(dv, control, estimate, p.value, p.adj) %>%
   pivot_wider(
     names_from = control,
-    values_from = c(estimate, p.adj)
+    values_from = c(estimate, p.value, p.adj)
   ) %>%
   kable()
 ```
@@ -242,7 +244,7 @@ self_label_ym_by_concept_breadth_fitted_data <- expand.grid(
 fitted_data_combined <- bind_rows(self_label_y_by_concept_breadth_fitted_data, self_label_ym_by_concept_breadth_fitted_data)
 
 fitted_data_combined %>%
-  filter(self_id == "Yes") %>% # Can also try faceted graph, but it looks confusing!
+  filter(self_id == "Yes") %>% # Can also try faceted graph, but it looks confusing - even vertically
   ggplot() +
   geom_line(aes(concept_breadth, p_self_id, color = as.character(phq_sum)),
             linewidth = 1) +
@@ -258,7 +260,7 @@ fitted_data_combined %>%
     name = "PHQ-2 Sum Score",
     guide = guide_legend(reverse = T)
   ) +
-  # facet_wrap(~ self_id) +
+  # facet_wrap(~ self_id, ncol = 1) +
   theme_classic()
 ```
 
@@ -277,7 +279,7 @@ out %>%
   kable()
 ```
 
-### Analysis 2B: Is depression self-labeling associated wtih certain coping strategies?
+### Analysis 2B: Is depression self-labeling associated with certain coping strategies?
 
 ```{r}
 out %>%
@@ -301,4 +303,7 @@ df %>%
     self_label = mean(dep_self_id == "Yes"),
     phq_screen = mean(phq_sum >= 3)
   )
+
+# FYI - they also have more depression literacy
+summary(lm(df$dlit_sum ~ df$sexuality))
 ```
