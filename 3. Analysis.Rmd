@@ -202,6 +202,8 @@ out %>%
 
 #### Figure 1
 
+Predicted self-labeling by concept breadth, controlling for depression symptom severity.
+
 ```{r}
 self_label_y_by_concept_breadth_model <- glm(
   data = df,
@@ -290,6 +292,71 @@ out %>%
     values_from = c(estimate, p.adj)
   ) %>%
   kable()
+```
+
+#### Figure 2
+
+Effects of self-labeling on avoidant coping, controlling for depression symptom severity.
+
+```{r}
+figure_2_outcomes <- c("cbas_c_sum", "cbas_b_sum", "cbas_s_sum", "cbas_n_sum", "cbas_sum")
+
+median_phq_sum <- median(df$phq_sum)
+
+figure_2_data <- tibble()
+
+for(y in figure_2_outcomes) {
+  
+  y_scaled <- scale(df[[y]])
+  
+  regression_temp <- lm(
+    data = df,
+    formula = as.formula(y %+% " ~ dep_self_id + phq_sum")
+  )
+  
+  data_temp <- tibble(
+    phq_sum = median_phq_sum,
+    dep_self_id = c("Yes", "Not sure", "No")
+  )
+  
+  predictions_temp <- predict(
+    object = regression_temp,
+    newdata = data_temp,
+    type = "response",
+    interval = "confidence"
+  )
+  
+  out_temp <- bind_cols(
+    tibble(
+      y = y,
+      dep_self_id = c("Yes", "Not sure", "No")
+    ),
+    predictions_temp
+  )
+  
+  figure_2_data <- bind_rows(figure_2_data, out_temp)
+  
+}
+
+figure_2_data %>%
+  mutate(
+    y = recode(
+      y, 
+      "cbas_c_sum" = "Cognitive Avoidance",
+      "cbas_b_sum" = "Behavioral Avoidance",
+      "cbas_s_sum" = "Social Avoidance",
+      "cbas_n_sum" = "Non-Social Avoidance",
+      "cbas_sum" = "Total Avoidance"
+    )
+  ) %>%
+  ggplot(aes(dep_self_id, fit)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lwr, ymax = upr)) +
+  scale_x_discrete(name = "Depression Self-Labeling") +
+  scale_y_continuous(name = "z-Score") +
+  ggtitle("Avoidant Coping by Depression Self-Labeling", "Predicted Values Controlling for Depressive Symptom Severity") +
+  theme_classic() +
+  facet_wrap(~ y, scales = "free_y")
 ```
 
 ## Etc.

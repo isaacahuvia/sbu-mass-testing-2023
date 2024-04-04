@@ -2,6 +2,7 @@
 ## Load packages
 library(tidyverse)
 library(here)
+library(missForest)
 
 
 ## Set random number seed
@@ -231,8 +232,23 @@ data_with_composites <- imputed_data %>%
   )
 
 
+## Standardize variables
+# Standardize ad-hoc variables without meaningful units (i.e., clinical variables other than PHQ-2)
+standardized_data <- data_with_composites %>%
+  mutate(
+    across(
+      c(
+        starts_with("cbas"),
+        starts_with("ipq"),
+        dlit_sum
+      ),
+      scale
+    )
+  )
+
+
 ## Filter to only students <= 25 y/o
-filtered_data <- data_with_composites %>%
+filtered_data <- standardized_data %>%
   filter(
 
     age <= 25 # Not pre-registered, but to align with past research
