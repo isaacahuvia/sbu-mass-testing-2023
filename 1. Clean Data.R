@@ -87,7 +87,7 @@ recoded_data <- combined_raw_data %>%
 
     ## Depression beliefs (*your* depression)
     across(
-      all_of(c("ipq_1", "ipq_2", "ipq_3", "ipq_4", "therapy_eff", "med_eff", "genes_dys", "genes_neutral", "brain_dys", "brain_neutral")),
+      all_of(c("ipq_1", "ipq_2", "ipq_3", "ipq_4")),
       ~ case_when(
         dep_self_id %in% c("Yes", "Maybe") ~ as.numeric(gsub("\\s.*$", "", .)),
         T ~ NA_real_
@@ -96,7 +96,7 @@ recoded_data <- combined_raw_data %>%
 
     ## Depression beliefs (depression *in general*)
     across(
-      all_of(c("ipq_1", "ipq_2", "ipq_3", "ipq_4", "therapy_eff", "med_eff", "genes_dys", "genes_neutral", "brain_dys", "brain_neutral")),
+      all_of(c("therapy_eff", "med_eff", "genes_dys", "genes_neutral", "brain_dys", "brain_neutral")),
              ~ as.numeric(gsub("\\s.*$", "", .))
     ),
 
@@ -151,6 +151,7 @@ recoded_data <- combined_raw_data %>%
     dlit_8 = dlit_8 == "FALSE",
 
   ) %>%
+
   select(
 
     id, dataset,
@@ -159,10 +160,11 @@ recoded_data <- combined_raw_data %>%
 
     dep_self_id, dep_dx, dep_therapy, dep_meds, dep_fam, dep_friends,
 
-    ipq_timeline = ipq_1,
-    ipq_control = ipq_2,
-    ipq_therapy = ipq_3,
-    ipq_medication = ipq_4,
+    # These shouldn't be imputed and aren't going to be used anyhow
+    # ipq_timeline = ipq_1,
+    # ipq_control = ipq_2,
+    # ipq_therapy = ipq_3,
+    # ipq_medication = ipq_4,
 
     therapy_eff, med_eff,
 
